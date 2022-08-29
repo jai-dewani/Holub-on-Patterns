@@ -11,7 +11,7 @@ public class TableFactory
 
     public static Table create(Table.Importer importer) throws IOException
     {
-        return new ConcreateTable(importer);
+        return new ConcreteTable(importer);
     }
 
     public static Table load(String name) throws IOException
@@ -30,7 +30,7 @@ public class TableFactory
                     "Filename (" + name + ") does not end in "
                     + "supported extension (.csv)");
         Reader in = new FileReader(new File(directory, name));
-        Table loaded = new ConcreateTable(new CSVImporter(in));
+        Table loaded = new ConcreteTable(new CSVImporter(in));
         in.close();
         return loaded;
     }
