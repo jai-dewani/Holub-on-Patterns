@@ -400,6 +400,54 @@ public class ConcreteTable implements Table {
     }
 
 
+    public String name() {
+        return tableName;
+    }
+
+    public void rename(String s) {
+        tableName = s;
+    }
+
+    public boolean isDirty() {
+        return isDirty;
+    }
+
+    public int width() {
+        return columnNames.length;
+    }
+
+    public Object clone() throws CloneNotSupportedException {
+        ConcreteTable copy = (ConcreteTable) super.clone();
+        copy.rowSet = (LinkedList) rowSet.clone();
+        copy.columnNames = (String[]) columnNames.clone();
+        copy.tableName = tableName;
+        return copy;
+    }
+
+    public String toString(){
+        StringBuffer out = new StringBuffer();
+
+        out.append(tableName == null ? "<anonymous>" : tableName);
+        out.append("\n");
+
+        for(int i=0;i<columnNames.length; i++)
+            out.append(columnNames[i] + "\t");
+        out.append("\n------------------------------------------------------\n");
+
+        for(Cursor i = rows(); i.advance();){
+            Iterator columns = i.columns();
+            while(columns.hasNext()){
+                Object next = columns.next();
+                if(next == null)
+                    out.append("null\t");
+                else
+                    out.append(next.toString() + "\t");
+            }
+            out.append("\n");
+        }
+
+        return out.toString();
+    }
 
 
 
