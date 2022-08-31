@@ -9,7 +9,6 @@ public class ConcreteTable implements Table {
     private LinkedList rowSet = new LinkedList();
     private String[] columnNames;
     private String tableName;
-
     private transient boolean isDirty = false;
     private transient LinkedList transactionStack = new LinkedList();
 
@@ -285,4 +284,123 @@ public class ConcreteTable implements Table {
         }
         return deleted;
     }
+
+    public Table select(Selector where) {
+        Table resultTable = new ConcreteTable(null, (String[]) columnNames.clone());
+
+        Results currentRow = currentRow = (Results) rows();
+        Cursor[] envelope = new Cursor[]{currentRow};
+
+        while (currentRow.advance()) {
+            if (where.approve(envelope))
+                resultTable.insert((Object[]) currentRow.cloneRow());
+
+        }
+        return new UnmodifiableTable(resultTable);
+    }
+
+    public Table select(Selector where, String[] requestedColumns) {
+        if (requestedColumns == null)
+            return select(where);
+
+        Table resultTable = new ConcreteTable(null, (String[]) requestedColumns.clone());
+
+        Results currentRow = (Results) rows();
+        Cursor[] envelope = new Cursor[]{currentRow};
+
+        while (currentRow.advance()) {
+            if (where.approve(envelope)) {
+                Object[] newRow = new Object[requestedColumns.length];
+                for (int column = 0; column < requestedColumns.length; column++) {
+                    newRow[column] = currentRow.column(requestedColumns[column]);
+                }
+                resultTable.insert(newRow);
+            }
+        }
+        return new UnmodifiableTable(resultTable);
+    }
+
+    public Table select(Selector where, String[] requestedColumns, Table[] otherTables) {
+        if (otherTables == null || otherTables.length == 0)
+            return select(where, requestedColumns);
+
+        Table[] allTables = new Table[otherTables.length + 1];
+        allTables[0] = this;
+        System.arraycopy(otherTables, 0, allTables, 1, otherTables.length);
+
+        Table resultTable = new ConcreteTable(null, requestedColumns);
+        Cursor[] envelope = new Cursor[allTables.length];
+
+        selectFromCartesianProduct(0, where, requestedColumns,
+                allTables, envelope, resultTable);
+
+        return new UnmodifiableTable(resultTable);
+    }
+
+    private static void selectFromCartesianProduct(
+            int level,
+            Selector where,
+            String[] requestedColumns,
+            Table[] allTables,
+            Cursor[] allIterators,
+            Table resultTable) {
+        allIterators[level] = allTables[level].rows();
+        while (allIterators[level].advance()) {
+            if (level < allIterators.length - 1)
+                selectFromCartesianProduct(level + 1, where,
+                        requestedColumns, allTables,
+                        allIterators, resultTable);
+
+            if (level == allIterators.length - 1) {
+                if (where.approve(allIterators))
+                    insertApprovedRows(resultTable,
+                            requestedColumns, allIterators);
+            }
+        }
+    }
+
+    private static void insertApprovedRows(Table resultTable,
+                                           String[] requestedColumns,
+                                           Cursor[] allTables) {
+        Object[] resultRow = new Object[requestedColumns.length];
+
+        for (int i = 0; i < requestedColumns.length; ++i) {
+            for (int table = 0; table < allTables.length; ++table) {
+                try {
+                    resultRow[i] = allTables[table].column(requestedColumns[i]);
+                } catch (Exception e) {
+                    // otherwise, try the next table
+                }
+            }
+        }
+        resultTable.insert(resultRow);
+    }
+
+    public Table select(Selector where, Collection requestedColumns, Collection other) {
+        String[] columnNames = null;
+        Table[] otherTables = null;
+
+        if (requestedColumns != null) {
+            columnNames = new String[requestedColumns.size()];
+            int i = 0;
+            Iterator column = requestedColumns.iterator();
+
+            while (column.hasNext())
+                columnNames[i++] = column.next().toString();
+        }
+
+        if (other != null)
+            otherTables = (Table[]) other.toArray(new Table[other.size()]);
+
+        return select(where, columnNames, otherTables);
+    }
+
+    public Table select(Selector where, Collection requestedColumns) {
+        return select(where, requestedColumns, null);
+    }
+
+
+
+
+
 }
